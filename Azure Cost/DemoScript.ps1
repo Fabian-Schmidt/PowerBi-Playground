@@ -99,6 +99,7 @@ $ApiVersion = '2015-06-01-preview';
 $UsageUrl = "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Commerce/UsageAggregates?api-version={1}&reportedStartTime={2}&reportedEndTime={3}&aggregationGranularity={4}&showDetails={5}" `
             -f $subscriptionId, $ApiVersion, $reportedStartTime.ToString($dateTimeFormat), $reportedEndTime.ToString($dateTimeFormat), $AzureCostGranularity, $AzureCostShowDetails;
 
+
 $TransformedUsageData = Do {
     $usageData = Invoke-RestMethod -Uri $UsageUrl -Headers $AzureAuthHeaders -ContentType 'application/json'
 	
@@ -113,19 +114,9 @@ $TransformedUsageData = Do {
 			if ($_.InfoFields -ne $null -and $_.InfoFields.Project -ne $null) {
                 $project = $usage.InfoFields.Project;
                 $resource = $Resources | where {$_.type -Like ('*'+$usage.InfoFields.meteredService+'*') -and $_.name -eq $project} | select -First 1
-                if ($resource -eq $null) {
-                    $project2 = $project -replace ' - ', '/';
-                    $resource = $Resources | where {$_.type -Like ('*'+$usage.InfoFields.meteredService+'*') -and $_.name -eq $project2} | select -First 1
-                }
-                if ($resource -eq $null) {
-                    $project3 = $project.split('(')[0];
-                    $resource = $Resources | where {$_.type -Like ('*'+$usage.InfoFields.meteredService+'*') -and $_.name -eq $project3} | select -First 1
-                }
-                if ($resource -eq $null) {
-                    $resource = @{ 
-                        name = $project -replace ' - ', '/'
-                    }
-                }
+                if ($resource -eq $null) { $resource = $Resources | where {$_.type -Like ('*'+$usage.InfoFields.meteredService+'*') -and $_.name -eq ($project -replace ' - ', '/')} | select -First 1; }
+                if ($resource -eq $null) { $resource = $Resources | where {$_.type -Like ('*'+$usage.InfoFields.meteredService+'*') -and $_.name -eq ($project.split('(')[0])} | select -First 1; }
+                if ($resource -eq $null) { $resource = @{ name = $project -replace ' - ', '/' }; }
                 Add-Member -InputObject $_ -MemberType NoteProperty -Name 'Resource' -Value $resource -Force
 
                 $location = Coalesce $location $resource.location $_.InfoFields.meteredRegion;
